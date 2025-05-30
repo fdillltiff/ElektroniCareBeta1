@@ -69,6 +69,11 @@
             android:name=".HistoryActivity"
             android:exported="false" />
             
+        <!-- Repair Details Activity -->
+        <activity
+            android:name=".RepairDetailsActivity"
+            android:exported="false" />
+            
         <!-- Services Activity -->
         <activity
             android:name=".ServicesActivity"

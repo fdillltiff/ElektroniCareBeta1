@@ -39,9 +39,9 @@ object DebugHelper {
         delay(2000)
 
         // Check if repair exists
-        val repairDoc = FirebaseManager.getRepairById(repairId)
-        Log.d(TAG, "Repair document exists: ${repairDoc?.exists()}")
-        Log.d(TAG, "Repair document data: ${repairDoc?.data}")
+        val repair = FirebaseManager.getRepairById(repairId)
+        Log.d(TAG, "Repair exists: ${repair != null}")
+        Log.d(TAG, "Repair data: ${repair?.id}")
 
         // Get all user repairs
         val userRepairs = FirebaseManager.getUserRepairs()
