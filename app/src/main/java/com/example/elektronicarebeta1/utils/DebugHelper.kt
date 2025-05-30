@@ -24,8 +24,8 @@ object DebugHelper {
 
         // Get user document from Firestore
         val userDoc = FirebaseManager.getUserData()
-        Log.d(TAG, "User document exists: ${userDoc?.exists()}")
-        Log.d(TAG, "User document data: ${userDoc?.data}")
+        Log.d(TAG, "User document exists: ${userDoc != null}")
+        Log.d(TAG, "User document data: ${userDoc?.toString()}")
     }
 
     /**
@@ -48,7 +48,7 @@ object DebugHelper {
         Log.d(TAG, "Total user repairs: ${userRepairs?.size()}")
 
         userRepairs?.documents?.forEach { doc ->
-            Log.d(TAG, "Repair: ${doc.id} -> ${doc.data}")
+            Log.d(TAG, "Repair: ${doc.id} -> ${doc.toString()}")
         }
     }
 
@@ -67,7 +67,7 @@ object DebugHelper {
 
             repairs?.documents?.forEachIndexed { index, doc ->
                 Log.d(TAG, "Repair $index: ID=${doc.id}")
-                Log.d(TAG, "  Data: ${doc.data}")
+                Log.d(TAG, "  Data: ${doc.toString()}")
                 Log.d(TAG, "  Status: ${doc.getString("status")}")
                 Log.d(TAG, "  Device: ${doc.getString("deviceModel")}")
                 Log.d(TAG, "  Created: ${doc.getDate("createdAt")}")
