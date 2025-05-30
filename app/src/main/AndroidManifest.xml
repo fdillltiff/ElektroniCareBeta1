@@ -4,8 +4,13 @@
 
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+<uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+<uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 
     <application
+        android:name=".ElektroniCareApplication"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
@@ -64,6 +69,11 @@
             android:name=".HistoryActivity"
             android:exported="false" />
             
+        <!-- Repair Details Activity -->
+        <activity
+            android:name=".RepairDetailsActivity"
+            android:exported="false" />
+            
         <!-- Services Activity -->
         <activity
             android:name=".ServicesActivity"
@@ -78,6 +88,22 @@
         <activity
             android:name=".BookingActivity"
             android:exported="false" />
+            
+        <!-- Cloudinary Setup Activity -->
+        <activity
+            android:name=".CloudinarySetupActivity"
+            android:exported="false" />
+
+        <!-- FileProvider for camera functionality -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
     </application>
 

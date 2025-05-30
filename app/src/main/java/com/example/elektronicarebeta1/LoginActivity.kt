@@ -3,6 +3,7 @@ package com.example.elektronicarebeta1
 import android.content.Intent
 import android.os.Bundle
 import android.text.method.PasswordTransformationMethod
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import android.widget.EditText
@@ -11,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
@@ -18,11 +20,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInStatusCodes
 import com.google.android.gms.common.api.ApiException
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.elektronicarebeta1.firebase.FirebaseManager
+import kotlinx.coroutines.launch
 
 class LoginActivity : AppCompatActivity() {
     private lateinit var auth: FirebaseAuth
-    private lateinit var db: FirebaseFirestore
     private lateinit var googleSignInClient: GoogleSignInClient
     private var isPasswordVisible = false
 
@@ -30,6 +32,10 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var passwordError: TextView
     private lateinit var emailEdit: EditText
     private lateinit var passwordEdit: EditText
+
+    companion object {
+        private const val TAG = "LoginActivity"
+    }
 
     private val googleSignInLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -67,18 +73,13 @@ class LoginActivity : AppCompatActivity() {
         setContentView(R.layout.activity_login)
 
         auth = FirebaseAuth.getInstance()
-        db = FirebaseFirestore.getInstance()
 
         val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
             .requestIdToken(getString(R.string.default_web_client_id))
             .requestEmail()
             .build()
 
-        try {
-            googleSignInClient = GoogleSignIn.getClient(this, gso)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Google Sign-In setup error: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        googleSignInClient = GoogleSignIn.getClient(this, gso)
 
         setupViews()
     }
@@ -132,20 +133,17 @@ class LoginActivity : AppCompatActivity() {
 
         signUpLink.setOnClickListener {
             startActivity(Intent(this, RegisterActivity::class.java))
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
             finish()
         }
 
         googleSignInButton.setOnClickListener {
-            try {
-                Toast.makeText(this, "Starting Google Sign-In...", Toast.LENGTH_SHORT).show()
-                signInWithGoogle()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Google Sign-In Button Error: ${e.message}", Toast.LENGTH_LONG).show()
-            }
+            Toast.makeText(this, "Starting Google Sign-In...", Toast.LENGTH_SHORT).show()
+            signInWithGoogle()
         }
     }
 
-    public fun validateInputs(email: String, password: String): Boolean {
+    private fun validateInputs(email: String, password: String): Boolean {
         var isValid = true
 
         if (email.isEmpty() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
@@ -161,7 +159,7 @@ class LoginActivity : AppCompatActivity() {
         return isValid
     }
 
-    public fun showError(errorView: TextView, message: String) {
+    private fun showError(errorView: TextView, message: String) {
         errorView.text = message
         errorView.visibility = View.VISIBLE
     }
@@ -189,12 +187,8 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun signInWithGoogle() {
-        try {
-            val signInIntent = googleSignInClient.signInIntent
-            googleSignInLauncher.launch(signInIntent)
-        } catch (e: Exception) {
-            Toast.makeText(this, "Google Sign-In Error: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        val signInIntent = googleSignInClient.signInIntent
+        googleSignInLauncher.launch(signInIntent)
     }
 
     private fun firebaseAuthWithGoogle(idToken: String) {
@@ -202,38 +196,51 @@ class LoginActivity : AppCompatActivity() {
         auth.signInWithCredential(credential)
             .addOnSuccessListener { authResult ->
                 val user = authResult.user
-                user?.let {
-                    val userData = hashMapOf(
-                        "fullName" to it.displayName,
-                        "email" to it.email,
-                        "mobile" to ""
-                    )
+                user?.let { firebaseUser ->
+                    lifecycleScope.launch {
+                        try {
+                            val userData = hashMapOf<String, Any>(
+                                "fullName" to (firebaseUser.displayName ?: ""),
+                                "email" to (firebaseUser.email ?: ""),
+                                "phone" to "",
+                                "address" to "",
+                                "profileImageUrl" to (firebaseUser.photoUrl?.toString() ?: "")
+                            )
 
-                    db.collection("users")
-                        .document(it.uid)
-                        .set(userData)
-                        .addOnSuccessListener {
-                            Toast.makeText(this@LoginActivity, "Google sign-in successful", Toast.LENGTH_SHORT).show()
-                            navigateToDashboard()
+                            Log.d(TAG, "Saving Google user data: $userData")
+                            val success = FirebaseManager.createOrUpdateUserData(userData)
+
+                            if (success) {
+                                Log.d(TAG, "Google user data saved successfully")
+                                Toast.makeText(this@LoginActivity, "Google sign-in successful", Toast.LENGTH_SHORT).show()
+                                navigateToDashboard()
+                            } else {
+                                Log.e(TAG, "Failed to save Google user data")
+                                Toast.makeText(this@LoginActivity, "Error saving user data", Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            Log.e(TAG, "Error processing Google sign-in", e)
+                            Toast.makeText(this@LoginActivity, "Error processing sign-in: ${e.message}", Toast.LENGTH_LONG).show()
                         }
-                        .addOnFailureListener { e ->
-                            Toast.makeText(this@LoginActivity, "Error saving user data: ${e.message}", Toast.LENGTH_LONG).show()
-                        }
+                    }
                 }
             }
             .addOnFailureListener { e ->
+                Log.e(TAG, "Google authentication failed", e)
                 Toast.makeText(this, "Google authentication failed: ${e.message}", Toast.LENGTH_LONG).show()
             }
     }
 
     private fun navigateToDashboard() {
-        try {
-            val intent = Intent(this, DashboardActivity::class.java)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            startActivity(intent)
-            finish()
-        } catch (e: Exception) {
-            Toast.makeText(this, "Error navigating to dashboard: ${e.message}", Toast.LENGTH_LONG).show()
-        }
+        val intent = Intent(this, DashboardActivity::class.java)
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        startActivity(intent)
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
+        finish()
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 }
