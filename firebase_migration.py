@@ -51,7 +51,7 @@ def create_mock_data():
             "profileImageUrl": "https://randomuser.me/api/portraits/men/1.jpg",
             "location": "Jakarta Selatan",
             "contactNumber": "+6281234567890",
-            "email": "ahmad.rizki@example.com",
+            "email": "satriawiangga200@gmail.com",
             "availableDays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
             "createdAt": now
         },
@@ -65,7 +65,7 @@ def create_mock_data():
             "profileImageUrl": "https://randomuser.me/api/portraits/women/2.jpg",
             "location": "Jakarta Pusat",
             "contactNumber": "+6281234567891",
-            "email": "siti.nurhayati@example.com",
+            "email": "satrialingga702@gmail.com",
             "availableDays": ["Monday", "Wednesday", "Friday", "Saturday"],
             "createdAt": now
         },
@@ -249,12 +249,12 @@ def migrate_data(db, data, user_id=None):
             "deviceModel": "iPhone 13",
             "issueDescription": "Cracked screen needs replacement",
             "serviceId": service_refs.get("Screen Replacement"),
-            "technicianId": next((id for name, id in tech_refs.items() if "Phone" in data["technicians"][list(tech_refs.keys()).index(name)]["specialization"]), None),
+            "technicianEmail": "satriawiangga200@gmail.com",
             "status": "completed",
             "estimatedCost": 750000.0,
-            "scheduledDate": datetime.datetime.now() - datetime.timedelta(days=10),
+            "appointmentTimestamp": datetime.datetime.now() - datetime.timedelta(days=10),
             "completedDate": datetime.datetime.now() - datetime.timedelta(days=9),
-            "location": "Fresh Teknik Service Center",
+            "location": "ElektroniCare Service Center",
             "createdAt": datetime.datetime.now() - datetime.timedelta(days=12)
         }
         
@@ -265,10 +265,10 @@ def migrate_data(db, data, user_id=None):
             "deviceModel": "MacBook Pro 2022",
             "issueDescription": "Battery drains quickly and needs replacement",
             "serviceId": service_refs.get("Battery Replacement"),
-            "technicianId": next((id for name, id in tech_refs.items() if "Laptop" in data["technicians"][list(tech_refs.keys()).index(name)]["specialization"]), None),
+            "technicianEmail": "satrialingga702@gmail.com",
             "status": "in_progress",
             "estimatedCost": 950000.0,
-            "scheduledDate": datetime.datetime.now() + datetime.timedelta(days=1),
+            "appointmentTimestamp": datetime.datetime.now() + datetime.timedelta(days=1),
             "completedDate": None,
             "location": "ElektroniCare Service Center",
             "createdAt": datetime.datetime.now() - datetime.timedelta(days=2)
@@ -280,6 +280,25 @@ def migrate_data(db, data, user_id=None):
         
         repair_ref2 = db.collection("repairs").add(repair2)
         print(f"  Added repair: {repair2['deviceModel']} - {repair2['issueDescription']} (ID: {repair_ref2[1].id})")
+        
+        # Add a pending repair for testing cancel functionality
+        repair3 = {
+            "userId": user_id,
+            "deviceType": "Phone",
+            "deviceModel": "Samsung Galaxy S23",
+            "issueDescription": "Battery replacement needed",
+            "serviceId": service_refs.get("Battery Replacement"),
+            "technicianEmail": "satriawiangga200@gmail.com",
+            "status": "pending",
+            "estimatedCost": 650000.0,
+            "appointmentTimestamp": datetime.datetime.now() + datetime.timedelta(days=7),
+            "completedDate": None,
+            "location": "ElektroniCare Service Center",
+            "createdAt": datetime.datetime.now()
+        }
+        
+        repair_ref3 = db.collection("repairs").add(repair3)
+        print(f"  Added repair: {repair3['deviceModel']} - {repair3['issueDescription']} (ID: {repair_ref3[1].id})")
     
     print("\nMigration completed successfully!")
 
@@ -287,6 +306,7 @@ def main():
     parser = argparse.ArgumentParser(description="Migrate data to Firebase for ElektroniCare app")
     parser.add_argument("--credentials", required=True, help="Path to the Firebase service account credentials JSON file")
     parser.add_argument("--user-id", help="Firebase user ID to associate with the sample data")
+    parser.add_argument("--migrate-repairs", action="store_true", help="Migrate existing repairs to use appointmentTimestamp")
     
     args = parser.parse_args()
     
@@ -298,11 +318,60 @@ def main():
     # Initialize Firebase
     db = initialize_firebase(args.credentials)
     
-    # Create mock data
-    data = create_mock_data()
-    
-    # Migrate data to Firebase
-    migrate_data(db, data, args.user_id)
+    if args.migrate_repairs:
+        migrate_repairs_to_appointment_timestamp(db)
+    elif args.user_id: # This implies seeding data
+        # Create mock data
+        data = create_mock_data()
+        # Migrate data to Firebase
+        migrate_data(db, data, args.user_id)
+    else:
+        # Instructions if no specific action is chosen, or print help
+        parser.print_help()
+        print("\nPlease specify an action: --migrate-repairs to migrate existing repairs, or --user-id to seed new data.")
+
+def migrate_repairs_to_appointment_timestamp(db):
+    """Migrates existing repair documents to use appointmentTimestamp."""
+    print("Starting repair data migration to appointmentTimestamp...")
+    repairs_ref = db.collection("repairs")
+    docs = repairs_ref.stream() # Use stream() for potentially large collections
+
+    processed_count = 0
+    migrated_count = 0
+
+    for doc in docs:
+        processed_count += 1
+        data = doc.to_dict()
+
+        if data.get("appointmentTimestamp") is not None:
+            print(f"  Document {doc.id} already has appointmentTimestamp. Skipping.")
+            continue
+
+        scheduled_time = data.get("scheduledTime")
+        scheduled_date = data.get("scheduledDate")
+        new_timestamp_value = None
+
+        # Check if scheduled_time is a valid timestamp
+        if scheduled_time is not None and isinstance(scheduled_time, (datetime.datetime, datetime.date, firebase_admin.firestore.firestore.SERVER_TIMESTAMP.__class__)):
+            new_timestamp_value = scheduled_time
+        # Else, check if scheduled_date is a valid timestamp
+        elif scheduled_date is not None and isinstance(scheduled_date, (datetime.datetime, datetime.date, firebase_admin.firestore.firestore.SERVER_TIMESTAMP.__class__)):
+            new_timestamp_value = scheduled_date
+        
+        if new_timestamp_value is not None:
+            update_data = {
+                "appointmentTimestamp": new_timestamp_value,
+                "scheduledTime": firestore.DELETE_FIELD,
+                "scheduledDate": firestore.DELETE_FIELD
+            }
+            doc.reference.update(update_data)
+            migrated_count += 1
+            print(f"  Migrated document {doc.id}.")
+        else:
+            print(f"  Document {doc.id} has no suitable scheduledTime or scheduledDate field for migration.")
+
+    print(f"\nRepair migration complete. Processed {processed_count} documents, migrated {migrated_count} documents.")
+
 
 if __name__ == "__main__":
     main()

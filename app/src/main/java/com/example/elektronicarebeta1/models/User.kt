@@ -1,5 +1,6 @@
 package com.example.elektronicarebeta1.models
 
+import android.util.Log
 import com.google.firebase.firestore.DocumentSnapshot
 import java.util.Date
 
@@ -15,15 +16,25 @@ data class User(
     companion object {
         fun fromDocument(document: DocumentSnapshot): User? {
             return try {
+                Log.d("User", "Parsing user document: ${document.id}")
+                Log.d("User", "Document data: ${document.data}")
+                
                 val id = document.id
                 val fullName = document.getString("fullName") ?: ""
                 val email = document.getString("email") ?: ""
                 val phone = document.getString("phone")
                 val address = document.getString("address")
                 val profileImageUrl = document.getString("profileImageUrl")
-                val createdAt = document.getDate("createdAt")
                 
-                User(
+                // Handle different date formats (Date or Timestamp)
+                val createdAt = try {
+                    document.getDate("createdAt") ?: document.getTimestamp("createdAt")?.toDate()
+                } catch (e: Exception) {
+                    Log.w("User", "Error parsing createdAt date: ${e.message}")
+                    null
+                }
+                
+                val user = User(
                     id = id,
                     fullName = fullName,
                     email = email,
@@ -32,7 +43,11 @@ data class User(
                     profileImageUrl = profileImageUrl,
                     createdAt = createdAt
                 )
+                
+                Log.d("User", "Successfully parsed user: $fullName, createdAt: $createdAt")
+                user
             } catch (e: Exception) {
+                Log.e("User", "Error parsing user document", e)
                 null
             }
         }

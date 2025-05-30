@@ -64,18 +64,25 @@ class SplashActivity : AppCompatActivity() {
     }
 
     private fun navigateToNextScreen() {
-        val currentUser = auth.currentUser
+        // EMERGENCY FIX: Force logout to ensure proper authentication
+        auth.signOut()
+        
         val prefs = getSharedPreferences("ElektroniCare", MODE_PRIVATE)
         val isFirstLaunch = prefs.getBoolean("isFirstLaunch", true)
 
         val intent = when {
-            currentUser != null -> Intent(this, DashboardActivity::class.java)
             isFirstLaunch -> Intent(this, OnboardingActivity::class.java)
             else -> Intent(this, WelcomeActivity::class.java)
         }
 
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         startActivity(intent)
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
         finish()
+    }
+
+    override fun finish() {
+        super.finish()
+        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out)
     }
 }
