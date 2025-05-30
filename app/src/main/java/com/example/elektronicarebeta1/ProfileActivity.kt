@@ -26,11 +26,13 @@ import androidx.core.content.FileProvider
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.engine.DiskCacheStrategy
+import com.bumptech.glide.request.RequestOptions
 import com.google.android.material.textfield.TextInputLayout
 import com.example.elektronicarebeta1.firebase.FirebaseManager
 import com.example.elektronicarebeta1.models.User
 import com.example.elektronicarebeta1.cloudinary.CloudinaryManager
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -180,15 +182,21 @@ class ProfileActivity : AppCompatActivity() {
                         displayUserData(currentUser!!)
                     } else {
                         Log.e(TAG, "Failed to parse user document")
-                        Toast.makeText(this@ProfileActivity, "Failed to load profile data", Toast.LENGTH_SHORT).show()
+                        runOnUiThread {
+                            Toast.makeText(this@ProfileActivity, "Failed to load profile data", Toast.LENGTH_SHORT).show()
+                        }
                     }
                 } else {
                     Log.e(TAG, "User document not found")
-                    Toast.makeText(this@ProfileActivity, "Failed to load profile data", Toast.LENGTH_SHORT).show()
+                    runOnUiThread {
+                        Toast.makeText(this@ProfileActivity, "Failed to load profile data", Toast.LENGTH_SHORT).show()
+                    }
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Error loading user profile", e)
-                Toast.makeText(this@ProfileActivity, "Error loading profile: ${e.message}", Toast.LENGTH_SHORT).show()
+                runOnUiThread {
+                    Toast.makeText(this@ProfileActivity, "Error loading profile: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
             }
         }
     }
@@ -200,12 +208,14 @@ class ProfileActivity : AppCompatActivity() {
             editTextPhone.setText(user.phone ?: "")
             editTextAddress.setText(user.address ?: "")
 
-            // Display join date
+            // Display join date with better formatting
             user.createdAt?.let { date ->
                 val dateFormat = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
-                userDateJoinedText.text = dateFormat.format(date)
+                userDateJoinedText.text = "Joined ${dateFormat.format(date)}"
+                Log.d(TAG, "User joined date: ${dateFormat.format(date)}")
             } ?: run {
-                userDateJoinedText.text = "N/A"
+                userDateJoinedText.text = "Join date not available"
+                Log.w(TAG, "User createdAt is null")
             }
 
             // Load profile image with proper cache handling
@@ -214,24 +224,36 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun loadProfileImage(imageUrl: String?) {
+        Log.d(TAG, "loadProfileImage called with URL: $imageUrl")
+        
         // Clear Glide cache first to ensure fresh image load
         Glide.with(this).clear(profileImageView)
 
-        val imageToLoad = if (!imageUrl.isNullOrEmpty() && !imageUrl.contains("placeholder")) {
+        val imageToLoad = if (!imageUrl.isNullOrEmpty() && 
+                             !imageUrl.contains("placeholder") && 
+                             imageUrl.startsWith("http")) {
             Log.d(TAG, "Loading profile image from URL: $imageUrl")
-            imageUrl
+            // Use optimized image URL if it's from Cloudinary
+            if (imageUrl.contains("cloudinary.com")) {
+                CloudinaryManager.getOptimizedImageUrl(imageUrl, 400, 400, "fill")
+            } else {
+                imageUrl
+            }
         } else {
             Log.d(TAG, "Using placeholder image")
             R.drawable.profile_placeholder
         }
 
-        Glide.with(this)
-            .load(imageToLoad)
+        val requestOptions = RequestOptions()
             .placeholder(R.drawable.profile_placeholder)
             .error(R.drawable.profile_placeholder)
-            .diskCacheStrategy(DiskCacheStrategy.NONE) // Disable disk cache
+            .diskCacheStrategy(DiskCacheStrategy.NONE) // Disable disk cache for fresh reload
             .skipMemoryCache(true) // Skip memory cache to force reload
             .circleCrop()
+
+        Glide.with(this)
+            .load(imageToLoad)
+            .apply(requestOptions)
             .into(profileImageView)
     }
 
@@ -241,13 +263,16 @@ class ProfileActivity : AppCompatActivity() {
         // Clear previous image and load new one
         Glide.with(this).clear(profileImageView)
 
-        Glide.with(this)
-            .load(uri)
+        val requestOptions = RequestOptions()
             .placeholder(R.drawable.profile_placeholder)
             .error(R.drawable.profile_placeholder)
             .diskCacheStrategy(DiskCacheStrategy.NONE)
             .skipMemoryCache(true)
             .circleCrop()
+
+        Glide.with(this)
+            .load(uri)
+            .apply(requestOptions)
             .into(profileImageView)
     }
 
@@ -437,10 +462,21 @@ class ProfileActivity : AppCompatActivity() {
                         // Clear selected image
                         selectedImageUri = null
 
+                        // Force reload profile data from Firebase to ensure sync
+                        delay(500) // Small delay to ensure Firebase update is complete
+                        loadUserProfile()
+
                         // Force reload profile image if new image was uploaded
                         if (!imageUrl.isNullOrEmpty()) {
                             runOnUiThread {
-                                loadProfileImage(imageUrl)
+                                // Clear all Glide caches before loading new image
+                                Glide.get(this@ProfileActivity).clearMemory()
+                                lifecycleScope.launch {
+                                    Glide.get(this@ProfileActivity).clearDiskCache()
+                                    runOnUiThread {
+                                        loadProfileImage(imageUrl)
+                                    }
+                                }
                             }
                         }
                     } else {

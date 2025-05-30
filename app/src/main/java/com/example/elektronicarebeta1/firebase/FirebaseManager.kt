@@ -68,12 +68,23 @@ object FirebaseManager {
             if (!userDoc.exists()) {
                 // New user - add createdAt
                 dataWithTimestamp["createdAt"] = Date()
-                Log.d(TAG, "Creating new user document")
+                Log.d(TAG, "Creating new user document with createdAt: ${dataWithTimestamp["createdAt"]}")
             } else {
                 // Existing user - preserve createdAt, add updatedAt
-                val existingCreatedAt = userDoc.getDate("createdAt") ?: userDoc.getTimestamp("createdAt")?.toDate()
+                val existingCreatedAt = try {
+                    userDoc.getDate("createdAt") ?: userDoc.getTimestamp("createdAt")?.toDate()
+                } catch (e: Exception) {
+                    Log.w(TAG, "Error getting existing createdAt: ${e.message}")
+                    null
+                }
+                
                 if (existingCreatedAt != null) {
                     dataWithTimestamp["createdAt"] = existingCreatedAt
+                    Log.d(TAG, "Preserving existing createdAt: $existingCreatedAt")
+                } else {
+                    // If no createdAt exists, add it now
+                    dataWithTimestamp["createdAt"] = Date()
+                    Log.d(TAG, "Adding missing createdAt: ${dataWithTimestamp["createdAt"]}")
                 }
                 dataWithTimestamp["updatedAt"] = Date()
                 Log.d(TAG, "Updating existing user document")

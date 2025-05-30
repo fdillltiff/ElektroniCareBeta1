@@ -94,17 +94,19 @@
 
                         <ImageView
                             android:id="@+id/edit_photo_icon"
-                            android:layout_width="30dp"
-                            android:layout_height="30dp"
+                            android:layout_width="32dp"
+                            android:layout_height="32dp"
                             android:src="@drawable/ic_camera"
-                            app:tint="@color/icon_grey_color"
+                            app:tint="#FFFFFF"
                             android:background="@drawable/circle_purple_bg"
                             android:padding="6dp"
                             app:layout_constraintBottom_toBottomOf="@id/profile_image"
                             app:layout_constraintEnd_toEndOf="@id/profile_image"
                             android:layout_marginEnd="-4dp"
                             android:layout_marginBottom="-2dp"
-                             />
+                            android:clickable="true"
+                            android:focusable="true"
+                            android:elevation="4dp" />
                     </androidx.constraintlayout.widget.ConstraintLayout>
 
                     <com.google.android.material.textfield.TextInputLayout
@@ -141,6 +143,16 @@
                         tools:text="john.doe@example.com"
                         android:textColor="#4B5563"
                         android:textSize="14sp"/>
+                    
+                    <TextView
+                        android:id="@+id/user_date_joined_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Joined January 1, 2024"
+                        android:textSize="12sp"
+                        android:textColor="@color/text_secondary"
+                        android:layout_marginTop="4dp"
+                        android:gravity="center_horizontal" />
                 </LinearLayout>
 
                 <!-- Editable Profile Information -->

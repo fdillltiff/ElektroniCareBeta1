@@ -25,7 +25,14 @@ data class User(
                 val phone = document.getString("phone")
                 val address = document.getString("address")
                 val profileImageUrl = document.getString("profileImageUrl")
-                val createdAt = document.getDate("createdAt")
+                
+                // Handle different date formats (Date or Timestamp)
+                val createdAt = try {
+                    document.getDate("createdAt") ?: document.getTimestamp("createdAt")?.toDate()
+                } catch (e: Exception) {
+                    Log.w("User", "Error parsing createdAt date: ${e.message}")
+                    null
+                }
                 
                 val user = User(
                     id = id,
@@ -37,7 +44,7 @@ data class User(
                     createdAt = createdAt
                 )
                 
-                Log.d("User", "Successfully parsed user: $fullName")
+                Log.d("User", "Successfully parsed user: $fullName, createdAt: $createdAt")
                 user
             } catch (e: Exception) {
                 Log.e("User", "Error parsing user document", e)

@@ -243,7 +243,7 @@ class RegisterActivity : AppCompatActivity() {
                     "fullName" to fullName,
                     "phone" to formatIndonesianPhoneNumber(mobile),
                     "email" to email,
-                    "createdAt" to com.google.firebase.Timestamp.now()
+                    "createdAt" to java.util.Date()
                 )
 
                 user?.let {
@@ -284,7 +284,7 @@ class RegisterActivity : AppCompatActivity() {
                         "fullName" to (it.displayName ?: ""),
                         "email" to (it.email ?: ""),
                         "phone" to "",
-                        "createdAt" to com.google.firebase.Timestamp.now()
+                        "createdAt" to java.util.Date()
                     )
 
                     db.collection("users")
